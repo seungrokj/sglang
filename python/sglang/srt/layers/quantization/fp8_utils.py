@@ -53,12 +53,30 @@ _is_fp8_fnuz = is_fp8_fnuz()
 
 _use_aiter = get_bool_env_var("SGLANG_USE_AITER") and _is_hip
 
+def is_aiter_triton_gemm_w8a8_tuned(n: int, k: int) -> bool:
+    return (n, k) in [
+        (1024, 8192),
+        (16384, 1536),
+        (2112, 7168),
+        (3072, 1536),
+        (32768, 8192),
+        (4096, 7168),
+        (4608, 7168),
+        (512, 7168),
+        (7168, 2048),
+        (7168, 16384),
+        (7168, 256),
+        (8192, 1024),
+        (8192, 32768),
+    ]
+
 if _use_aiter:
     import aiter
 
     # from aiter import gemm_a8w8_blockscale, gemm_a8w8_bpreshuffle, get_hip_quant
     from aiter import gemm_a8w8_bpreshuffle, get_hip_quant
-    from aiter.ops.triton.gemm_a8w8_blockscale import gemm_a8w8_blockscale
+    from aiter.ops.triton.gemm_a8w8_blockscale import gemm_a8w8_blockscale as triton_gemm_a8w8_blockscale
+    from aiter import gemm_a8w8_blockscale as gemm_a8w8_blockscale
 
     aiter_per1x128_quant = get_hip_quant(aiter.QuantType.per_1x128)
 
@@ -677,7 +695,19 @@ def aiter_w8a8_block_fp8_linear(
     else:
         q_input, x_scale = aiter_per1x128_quant(input_2d, quant_dtype=aiter.dtypes.fp8)
 
-    output = gemm_a8w8_blockscale(
+    n, k = weight.shape
+
+    use_triton = (
+        not _is_fp8_fnuz
+        and is_aiter_triton_gemm_w8a8_tuned(n, k)
+    )
+
+    if use_triton:
+        gemm_a8w8_blockscale_op = triton_gemm_a8w8_blockscale
+    else:
+        gemm_a8w8_blockscale_op = gemm_a8w8_blockscale
+
+    output = gemm_a8w8_blockscale_op(
         q_input,
         weight,
         x_scale,

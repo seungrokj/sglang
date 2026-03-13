@@ -38,6 +38,7 @@ from sglang.srt.utils import (
     is_blackwell_supported,
     is_cuda,
     is_flashinfer_available,
+    is_gfx95_supported,
     is_hip,
     is_sm90_supported,
     is_sm100_supported,
@@ -50,11 +51,13 @@ logger = logging.getLogger(__name__)
 _is_hip = is_hip()
 _is_cuda = is_cuda()
 _is_fp8_fnuz = is_fp8_fnuz()
+_is_gfx95_supported = is_gfx95_supported()
 
 _use_aiter = get_bool_env_var("SGLANG_USE_AITER") and _is_hip
+_use_aiter_gfx95 = _use_aiter and _is_gfx95_supported
 
 
-def is_aiter_triton_gemm_w8a8_tuned_gfx950(n: int, k: int) -> bool:
+def use_aiter_triton_gemm_w8a8_tuned_gfx950(n: int, k: int) -> bool:
     return (n, k) in [
         (1024, 8192),
         (16384, 1536),
@@ -771,9 +774,8 @@ def aiter_w8a8_block_fp8_linear(
 
     n, k = weight.shape
 
-    _ON_GFX950 = "gfx950" in torch.cuda.get_device_properties("cuda").gcnArchName
-    if _ON_GFX950:
-        use_triton = not _is_fp8_fnuz and is_aiter_triton_gemm_w8a8_tuned_gfx950(n, k)
+    if _use_aiter_gfx95:
+        use_triton = use_aiter_triton_gemm_w8a8_tuned_gfx950(n, k)
     else:
         use_triton = True
 

@@ -54,7 +54,7 @@ _is_fp8_fnuz = is_fp8_fnuz()
 _use_aiter = get_bool_env_var("SGLANG_USE_AITER") and _is_hip
 
 
-def is_aiter_triton_gemm_w8a8_tuned(n: int, k: int) -> bool:
+def is_aiter_triton_gemm_w8a8_tuned_gfx950(n: int, k: int) -> bool:
     return (n, k) in [
         (1024, 8192),
         (16384, 1536),
@@ -701,7 +701,11 @@ def aiter_w8a8_block_fp8_linear(
 
     n, k = weight.shape
 
-    use_triton = not _is_fp8_fnuz and is_aiter_triton_gemm_w8a8_tuned(n, k)
+    _ON_GFX950 = "gfx950" in torch.cuda.get_device_properties("cuda").gcnArchName
+    if _ON_GFX950:
+        use_triton = not _is_fp8_fnuz and is_aiter_triton_gemm_w8a8_tuned_gfx950(n, k)
+    else:
+        use_triton = True
 
     if use_triton:
         gemm_a8w8_blockscale_op = triton_gemm_a8w8_blockscale

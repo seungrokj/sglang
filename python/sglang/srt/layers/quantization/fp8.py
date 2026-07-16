@@ -1322,7 +1322,9 @@ class Fp8MoEMethod(FusedMoEMethodBase):
             # CK FP4 MoE kernel requires K_packed divisible by 128
             # (i.e., K_logical divisible by 256).
             # Pad intermediate_size_per_partition if needed.
-            fp4_k_align = 256
+            #fp4_k_align = 256
+            # https://github.com/sgl-project/sglang/pull/31450
+            fp4_k_align = 128
             E, w13_N, w13_K_packed = layer.w13_weight.shape
             _, w2_N, w2_K_packed = layer.w2_weight.shape
             inter_per_part = w13_N // 2
